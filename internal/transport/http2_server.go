@@ -217,29 +217,31 @@ func newHTTP2Server(conn net.Conn, config *ServerConfig) (_ ServerTransport, err
 		remoteAddr:        conn.RemoteAddr(),
 		localAddr:         conn.LocalAddr(),
 		authInfo:          config.AuthInfo,
-		framer:            framer,
+		framer:            framer, //网络链接帧处理器
 		readerDone:        make(chan struct{}),
 		writerDone:        make(chan struct{}),
 		maxStreams:        maxStreams,
 		inTapHandle:       config.InTapHandle,
-		fc:                &trInFlow{limit: uint32(icwz)},
+		fc:                &trInFlow{limit: uint32(icwz)}, //网络进入流控统计
 		state:             reachable,
-		activeStreams:     make(map[uint32]*Stream),
-		stats:             config.StatsHandler,
-		kp:                kp,
+		activeStreams:     make(map[uint32]*Stream), //当前活跃的流
+		stats:             config.StatsHandler, //网络统计处理handler
+		kp:                kp, //保活配置
 		idle:              time.Now(),
 		kep:               kep,
-		initialWindowSize: iwz,
+		initialWindowSize: iwz,//初始窗口大小
 		czData:            new(channelzData),
-		bufferPool:        newBufferPool(),
+		bufferPool:        newBufferPool(), //buffer 池子
 	}
-	t.controlBuf = newControlBuffer(t.done)
+	t.controlBuf = newControlBuffer(t.done) //流控缓冲区
 	if dynamicWindow {
 		t.bdpEst = &bdpEstimator{
 			bdp:               initialWindowSize,
 			updateFlowControl: t.updateFlowControl,
 		}
 	}
+
+	//链接统计器
 	if t.stats != nil {
 		t.ctx = t.stats.TagConn(t.ctx, &stats.ConnTagInfo{
 			RemoteAddr: t.remoteAddr,
@@ -286,6 +288,7 @@ func newHTTP2Server(conn net.Conn, config *ServerConfig) (_ ServerTransport, err
 	t.handleSettings(sf)
 
 	go func() {
+		// 循环写writer
 		t.loopy = newLoopyWriter(serverSide, t.framer, t.controlBuf, t.bdpEst)
 		t.loopy.ssGoAwayHandler = t.outgoingGoAwayHandler
 		if err := t.loopy.run(); err != nil {
@@ -319,6 +322,7 @@ func (t *http2Server) operateHeaders(frame *http2.MetaHeadersFrame, handle func(
 	}
 
 	buf := newRecvBuffer()
+	//生成流对象
 	s := &Stream{
 		id:             streamID,
 		st:             t,
@@ -429,6 +433,7 @@ func (t *http2Server) operateHeaders(frame *http2.MetaHeadersFrame, handle func(
 	}
 	s.ctxDone = s.ctx.Done()
 	s.wq = newWriteQuota(defaultWriteQuota, s.ctxDone)
+	//上层rpc handler 读取消息的transport reader
 	s.trReader = &transportReader{
 		reader: &recvBufferReader{
 			ctx:        s.ctx,
@@ -441,6 +446,7 @@ func (t *http2Server) operateHeaders(frame *http2.MetaHeadersFrame, handle func(
 		},
 	}
 	// Register the stream with loopy.
+	//注册当前流到 流控缓冲区
 	t.controlBuf.put(&registerStream{
 		streamID: s.id,
 		wq:       s.wq,
@@ -632,6 +638,7 @@ func (t *http2Server) handleData(f *http2.DataFrame) {
 			buffer := t.bufferPool.get()
 			buffer.Reset()
 			buffer.Write(f.Data())
+			//将消息写入收消息缓存区，上层rpc handler将会从从缓冲区读取消息，并处理。
 			s.write(recvMsg{buffer: buffer})
 		}
 	}

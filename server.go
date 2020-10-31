@@ -1054,10 +1054,12 @@ func getChainUnaryHandler(interceptors []UnaryServerInterceptor, curr int, info 
 
 func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.Stream, info *serviceInfo, md *MethodDesc, trInfo *traceInfo) (err error) {
 	sh := s.opts.statsHandler
+	//是否开启统计
 	if sh != nil || trInfo != nil || channelz.IsOn() {
 		if channelz.IsOn() {
 			s.incrCallsStarted()
 		}
+		//处理开始时间
 		var statsBegin *stats.Begin
 		if sh != nil {
 			beginTime := time.Now()
@@ -1079,6 +1081,7 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 		// handler second, and channelz last. Note that panics *within* defers will
 		// lead to different behavior, but that's an acceptable compromise; that
 		// would be undefined behavior territory anyway.
+		//结束时间
 		defer func() {
 			if trInfo != nil {
 				if err != nil && err != io.EOF {
@@ -1112,6 +1115,7 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 	binlog := binarylog.GetMethodLogger(stream.Method())
 	if binlog != nil {
 		ctx := stream.Context()
+		//从context 拿取头部信息
 		md, _ := metadata.FromIncomingContext(ctx)
 		logEntry := &binarylog.ClientHeader{
 			Header:     md,
@@ -1124,9 +1128,11 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 				logEntry.Timeout = 0
 			}
 		}
+		//拿取认证信息
 		if a := md[":authority"]; len(a) > 0 {
 			logEntry.Authority = a[0]
 		}
+		//对端地址信息
 		if peer, ok := peer.FromContext(ctx); ok {
 			logEntry.PeerAddr = peer.Addr
 		}
@@ -1173,6 +1179,7 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 	if sh != nil || binlog != nil {
 		payInfo = &payloadInfo{}
 	}
+	//从收消息缓冲区，读取消息并解压缩
 	d, err := recvAndDecompress(&parser{r: stream}, stream, dc, s.opts.maxReceiveMessageSize, payInfo, decomp)
 	if err != nil {
 		if e := t.WriteStatus(stream, status.Convert(err)); e != nil {
@@ -1180,9 +1187,11 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 		}
 		return err
 	}
+	//统计信息
 	if channelz.IsOn() {
 		t.IncrMsgRecv()
 	}
+	//统计信息
 	df := func(v interface{}) error {
 		if err := s.getCodec(stream.ContentSubtype()).Unmarshal(d, v); err != nil {
 			return status.Errorf(codes.Internal, "grpc: error unmarshalling request: %v", err)
@@ -1208,6 +1217,7 @@ func (s *Server) processUnaryRPC(t transport.ServerTransport, stream *transport.
 	}
 	ctx := NewContextWithServerTransportStream(stream.Context(), stream)
 	reply, appErr := md.Handler(info.serviceImpl, ctx, df, s.opts.unaryInt)
+	//转换错误 和 trace 错误
 	if appErr != nil {
 		appStatus, ok := status.FromError(appErr)
 		if !ok {
@@ -1501,7 +1511,7 @@ func (s *Server) processStreamingRPC(t transport.ServerTransport, stream *transp
 }
 
 func (s *Server) handleStream(t transport.ServerTransport, stream *transport.Stream, trInfo *traceInfo) {
-	sm := stream.Method()
+	sm := stream.Metod()
 	if sm != "" && sm[0] == '/' {
 		sm = sm[1:]
 	}

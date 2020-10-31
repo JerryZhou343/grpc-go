@@ -567,14 +567,15 @@ func (w *bufWriter) Flush() error {
 	if w.onFlush != nil {
 		w.onFlush()
 	}
+	//缓冲区数据写到网络
 	_, w.err = w.conn.Write(w.buf[:w.offset])
 	w.offset = 0
 	return w.err
 }
 
 type framer struct {
-	writer *bufWriter
-	fr     *http2.Framer
+	writer *bufWriter // 缓冲区
+	fr     *http2.Framer// 标准库帧解析器
 }
 
 func newFramer(conn net.Conn, writeBufferSize, readBufferSize int, maxHeaderListSize uint32) *framer {

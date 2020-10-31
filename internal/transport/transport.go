@@ -143,7 +143,7 @@ type recvBufferReader struct {
 	closeStream func(error) // Closes the client transport stream with the given error and nil trailer metadata.
 	ctx         context.Context
 	ctxDone     <-chan struct{} // cache of ctx.Done() (for performance).
-	recv        *recvBuffer
+	recv        *recvBuffer //接收缓冲区
 	last        *bytes.Buffer // Stores the remaining data in the previous calls.
 	err         error
 	freeBuffer  func(*bytes.Buffer)
@@ -156,6 +156,7 @@ func (r *recvBufferReader) Read(p []byte) (n int, err error) {
 	if r.err != nil {
 		return 0, r.err
 	}
+	//上一条消息不为空
 	if r.last != nil {
 		// Read remaining data left in last call.
 		copied, _ := r.last.Read(p)
@@ -168,6 +169,7 @@ func (r *recvBufferReader) Read(p []byte) (n int, err error) {
 	if r.closeStream != nil {
 		n, r.err = r.readClient(p)
 	} else {
+		//等待消息
 		n, r.err = r.read(p)
 	}
 	return n, r.err

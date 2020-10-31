@@ -96,6 +96,7 @@ type cbItem interface {
 }
 
 // registerStream is used to register an incoming stream with loopy writer.
+//用户注册一个入站的流到 loopy writer
 type registerStream struct {
 	streamID uint32
 	wq       *writeQuota
@@ -224,6 +225,7 @@ func (s *outStream) deleteSelf() {
 	s.next, s.prev = nil, nil
 }
 
+//数据流出流列表
 type outStreamList struct {
 	// Following are sentinel objects that mark the
 	// beginning and end of the list. They do not
@@ -274,8 +276,8 @@ type controlBuffer struct {
 	ch              chan struct{}
 	done            <-chan struct{}
 	mu              sync.Mutex
-	consumerWaiting bool
-	list            *itemList
+	consumerWaiting bool //消费者是否在等待
+	list            *itemList //响应结果列表
 	err             error
 
 	// transportResponseFrames counts the number of queued items that represent
@@ -283,7 +285,7 @@ type controlBuffer struct {
 	// when transportResponseFrames >= maxQueuedTransportResponseFrames and is
 	// closed and nilled when transportResponseFrames drops below the
 	// threshold.  Both fields are protected by mu.
-	transportResponseFrames int
+	transportResponseFrames int //响应response 计数
 	trfChan                 atomic.Value // *chan struct{}
 }
 
@@ -371,9 +373,12 @@ func (c *controlBuffer) get(block bool) (interface{}, error) {
 			c.mu.Unlock()
 			return nil, c.err
 		}
+
+		//缓冲控制器中的列表不为空
 		if !c.list.isEmpty() {
-			h := c.list.dequeue().(cbItem)
+			h := c.list.dequeue().(cbItem) //出队列，拿出一个响应
 			if h.isTransportResponseFrame() {
+				//响应帧暂存数量达到最大值
 				if c.transportResponseFrames == maxQueuedTransportResponseFrames {
 					// We are removing the frame that put us over the
 					// threshold; close and clear the throttling channel.
@@ -386,15 +391,17 @@ func (c *controlBuffer) get(block bool) (interface{}, error) {
 			c.mu.Unlock()
 			return h, nil
 		}
+		//是否需要阻塞调用这（loop writer)
 		if !block {
 			c.mu.Unlock()
 			return nil, nil
 		}
+		//当前消费者（loop writer 在等待消费）
 		c.consumerWaiting = true
 		c.mu.Unlock()
 		select {
-		case <-c.ch:
-		case <-c.done:
+		case <-c.ch: //
+		case <-c.done: //退出
 			c.finish()
 			return nil, ErrConnClosing
 		}
@@ -443,10 +450,11 @@ type loopyWriter struct {
 	side      side
 	cbuf      *controlBuffer
 	sendQuota uint32
-	oiws      uint32 // outbound initial window size.
+	oiws      uint32 // outbound initial window size. 出站窗口初始大小
 	// estdStreams is map of all established streams that are not cleaned-up yet.
 	// On client-side, this is all streams whose headers were sent out.
 	// On server-side, this is all streams whose headers were received.
+	//出站流,在客户端侧，头是要发出去的，服务度侧，头都是接收到的。
 	estdStreams map[uint32]*outStream // Established streams.
 	// activeStreams is a linked-list of all streams that have data to send and some
 	// stream-level flow control quota.
@@ -466,7 +474,7 @@ type loopyWriter struct {
 func newLoopyWriter(s side, fr *framer, cbuf *controlBuffer, bdpEst *bdpEstimator) *loopyWriter {
 	var buf bytes.Buffer
 	l := &loopyWriter{
-		side:          s,
+		side:          s, //当前writer的位置，客户端或 服务端
 		cbuf:          cbuf,
 		sendQuota:     defaultWindowSize,
 		oiws:          defaultWindowSize,
@@ -512,13 +520,16 @@ func (l *loopyWriter) run() (err error) {
 		}
 	}()
 	for {
+		//循环从流控缓冲区读取数据
 		it, err := l.cbuf.get(true)
 		if err != nil {
 			return err
 		}
+		//响应类型处理handler
 		if err = l.handle(it); err != nil {
 			return err
 		}
+		//处理响应数据
 		if _, err = l.processData(); err != nil {
 			return err
 		}
@@ -592,6 +603,8 @@ func (l *loopyWriter) incomingSettingsHandler(s *incomingSettings) error {
 	return l.framer.fr.WriteSettingsAck()
 }
 
+
+//registerStreamHandler  注册流处理handler，注册流
 func (l *loopyWriter) registerStreamHandler(h *registerStream) error {
 	str := &outStream{
 		id:    h.streamID,
@@ -628,6 +641,8 @@ func (l *loopyWriter) headerHandler(h *headerFrame) error {
 		}
 		return l.cleanupStreamHandler(h.cleanup)
 	}
+
+	//客户端想要创建一个流
 	// Case 2: Client wants to originate stream.
 	str := &outStream{
 		id:    h.streamID,
@@ -639,6 +654,8 @@ func (l *loopyWriter) headerHandler(h *headerFrame) error {
 	return l.originateStream(str)
 }
 
+
+//originateStream 创建流
 func (l *loopyWriter) originateStream(str *outStream) error {
 	hdr := str.itl.dequeue().(*headerFrame)
 	if err := hdr.initStream(str.id); err != nil {
@@ -700,7 +717,7 @@ func (l *loopyWriter) writeHeader(streamID uint32, endStream bool, hf []hpack.He
 	}
 	return nil
 }
-
+// 处理数据帧数据
 func (l *loopyWriter) preprocessData(df *dataFrame) error {
 	str, ok := l.estdStreams[df.streamID]
 	if !ok {
