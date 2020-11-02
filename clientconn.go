@@ -126,10 +126,11 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 		csMgr:             &connectivityStateManager{},
 		conns:             make(map[*addrConn]struct{}),
 		dopts:             defaultDialOptions(),
-		blockingpicker:    newPickerWrapper(),
+		blockingpicker:    newPickerWrapper(), //链接选择器
 		czData:            new(channelzData),
-		firstResolveEvent: grpcsync.NewEvent(),
+		firstResolveEvent: grpcsync.NewEvent(), //首次解析地址时间
 	}
+	//重试节流阀
 	cc.retryThrottler.Store((*retryThrottler)(nil))
 	cc.ctx, cc.cancel = context.WithCancel(context.Background())
 
@@ -236,7 +237,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 	// Determine the resolver to use.
 	cc.parsedTarget = grpcutil.ParseTarget(cc.target, cc.dopts.copts.Dialer != nil)
 	channelz.Infof(logger, cc.channelzID, "parsed scheme: %q", cc.parsedTarget.Scheme)
-	resolverBuilder := cc.getResolver(cc.parsedTarget.Scheme)
+	resolverBuilder := cc.getResolver(cc.parsedTarget.Scheme)//获得解析器构造类对象
 	if resolverBuilder == nil {
 		// If resolver builder is still nil, the parsed target's scheme is
 		// not registered. Fallback to default resolver and set Endpoint to
@@ -277,7 +278,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 		}
 	}
 	if cc.dopts.scChan != nil {
-		go cc.scWatcher()
+		go cc.scWatcher() //监视配置文件
 	}
 
 	var credsClone credentials.TransportCredentials
@@ -293,7 +294,7 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 	}
 
 	// Build the resolver.
-	rWrapper, err := newCCResolverWrapper(cc, resolverBuilder)
+	rWrapper, err := newCCResolverWrapper(cc, resolverBuilder) //包装解析器
 	if err != nil {
 		return nil, fmt.Errorf("failed to build resolver: %v", err)
 	}
@@ -394,6 +395,7 @@ func getChainStreamer(interceptors []StreamClientInterceptor, curr int, finalStr
 
 // connectivityStateManager keeps the connectivity.State of ClientConn.
 // This struct will eventually be exported so the balancers can access it.
+// 链接状态管理器
 type connectivityStateManager struct {
 	mu         sync.Mutex
 	state      connectivity.State
@@ -584,7 +586,7 @@ func (cc *ClientConn) maybeApplyDefaultServiceConfig(addrs []resolver.Address) {
 	}
 }
 
-//更新客户端地址列表
+//更新客户端地址列表(当解析到的服务地址发生变更时)
 func (cc *ClientConn) updateResolverState(s resolver.State, err error) error {
 	defer cc.firstResolveEvent.Fire()
 	cc.mu.Lock()
