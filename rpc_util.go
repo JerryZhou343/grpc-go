@@ -554,6 +554,7 @@ type parser struct {
 // that the underlying io.Reader must not return an incompatible
 // error.
 func (p *parser) recvMsg(maxReceiveMessageSize int) (pf payloadFormat, msg []byte, err error) {
+	//读取消息头
 	if _, err := p.r.Read(p.header[:]); err != nil {
 		return 0, nil, err
 	}
@@ -573,6 +574,7 @@ func (p *parser) recvMsg(maxReceiveMessageSize int) (pf payloadFormat, msg []byt
 	// TODO(bradfitz,zhaoq): garbage. reuse buffer after proto decoding instead
 	// of making it for each message:
 	msg = make([]byte, int(length))
+	//读取消息内容
 	if _, err := p.r.Read(msg); err != nil {
 		if err == io.EOF {
 			err = io.ErrUnexpectedEOF
@@ -752,6 +754,7 @@ func decompress(compressor encoding.Compressor, d []byte, maxReceiveMessageSize 
 // For the two compressor parameters, both should not be set, but if they are,
 // dc takes precedence over compressor.
 // TODO(dfawley): wrap the old compressor/decompressor using the new API?
+// 从流中读取消息
 func recv(p *parser, c baseCodec, s *transport.Stream, dc Decompressor, m interface{}, maxReceiveMessageSize int, payInfo *payloadInfo, compressor encoding.Compressor) error {
 	d, err := recvAndDecompress(p, s, dc, maxReceiveMessageSize, payInfo, compressor)
 	if err != nil {

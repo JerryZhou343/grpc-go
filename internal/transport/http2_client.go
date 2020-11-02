@@ -361,6 +361,7 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 		return nil, err
 	}
 	go func() {
+		//构建循环写缓冲区
 		t.loopy = newLoopyWriter(clientSide, t.framer, t.controlBuf, t.bdpEst)
 		err := t.loopy.run()
 		if err != nil {
@@ -588,6 +589,7 @@ func (p PerformedIOError) Error() string {
 
 // NewStream creates a stream and registers it into the transport as "active"
 // streams.
+// 创建一个流，并注册到传输层的活跃流中
 func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Stream, err error) {
 	ctx = peer.NewContext(ctx, t.getPeer())
 	headerFields, err := t.createHeaderFields(ctx, callHdr)
@@ -596,7 +598,9 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 		// allow transparent retry.
 		return nil, PerformedIOError{err}
 	}
+	//创建流
 	s := t.newStream(ctx, callHdr)
+	//异常清理函数
 	cleanup := func(err error) {
 		if s.swapState(streamDone) == streamDone {
 			// If it was already done, return.
@@ -626,6 +630,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 				cleanup(err)
 				return err
 			}
+			//记录活跃流
 			t.activeStreams[id] = s
 			if channelz.IsOn() {
 				atomic.AddInt64(&t.czData.streamsStarted, 1)
@@ -684,6 +689,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 		return true
 	}
 	for {
+		//向流控中写入
 		success, err := t.controlBuf.executeAndPut(func(it interface{}) bool {
 			if !checkForStreamQuota(it) {
 				return false
@@ -899,6 +905,8 @@ func (t *http2Client) Write(s *Stream, hdr []byte, data []byte, opts *Options) e
 	return t.controlBuf.put(df)
 }
 
+
+//getStream  客户端收消息，收到消息后从活跃流中找到对应的流
 func (t *http2Client) getStream(f http2.Frame) *Stream {
 	t.mu.Lock()
 	s := t.activeStreams[f.Header().StreamID]
@@ -983,6 +991,7 @@ func (t *http2Client) handleData(f *http2.DataFrame) {
 		t.controlBuf.put(bdpPing)
 	}
 	// Select the right stream to dispatch.
+	// 当前S 即为消费者，消费线程在外部等待收消息
 	s := t.getStream(f)
 	if s == nil {
 		return
@@ -994,16 +1003,19 @@ func (t *http2Client) handleData(f *http2.DataFrame) {
 		}
 		if f.Header().Flags.Has(http2.FlagDataPadded) {
 			if w := s.fc.onRead(size - uint32(len(f.Data()))); w > 0 {
+				//收包窗口更新，通知消费者消费
 				t.controlBuf.put(&outgoingWindowUpdate{s.id, w})
 			}
 		}
 		// TODO(bradfitz, zhaoq): A copy is required here because there is no
 		// guarantee f.Data() is consumed before the arrival of next frame.
 		// Can this copy be eliminated?
+		//取流中数据
 		if len(f.Data()) > 0 {
 			buffer := t.bufferPool.get()
 			buffer.Reset()
 			buffer.Write(f.Data())
+			//写入到的包到缓冲区
 			s.write(recvMsg{buffer: buffer})
 		}
 	}
@@ -1280,6 +1292,7 @@ func (t *http2Client) operateHeaders(frame *http2.MetaHeadersFrame) {
 func (t *http2Client) reader() {
 	defer close(t.readerDone)
 	// Check the validity of server preface.
+	// 读取一帧
 	frame, err := t.framer.fr.ReadFrame()
 	if err != nil {
 		t.Close() // this kicks off resetTransport, so must be last before return

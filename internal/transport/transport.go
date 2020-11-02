@@ -82,7 +82,7 @@ type recvMsg struct {
 // interface. recvBuffer is written to much more often and using strict recvMsg
 // structs helps avoid allocation in "recvBuffer.put"
 type recvBuffer struct {
-	c       chan recvMsg
+	c       chan recvMsg //收包转发通道
 	mu      sync.Mutex
 	backlog []recvMsg
 	err     error
@@ -282,7 +282,7 @@ type Stream struct {
 	// On client-side it is the status error received from the server.
 	// On server-side it is unused.
 	status *status.Status
-
+	//表明当前流收到消息
 	bytesReceived uint32 // indicates whether any bytes have been received on this stream
 	unprocessed   uint32 // set if the server sends a refused stream or GOAWAY including this stream
 

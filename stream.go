@@ -167,6 +167,7 @@ func newClientStream(ctx context.Context, desc *StreamDesc, cc *ClientConn, meth
 	c := defaultCallInfo()
 	// Provide an opportunity for the first RPC to see the first service config
 	// provided by the resolver.
+	// 解析上游IP 地址
 	if err := cc.waitForResolvedAddrs(ctx); err != nil {
 		return nil, err
 	}
