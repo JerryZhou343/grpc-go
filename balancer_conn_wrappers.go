@@ -74,11 +74,13 @@ func (ccb *ccBalancerWrapper) watcher() {
 			}
 			ccb.balancerMu.Lock()
 			su := t.(*scStateUpdate)
+			//更新子连接状态
 			ccb.balancer.UpdateSubConnState(su.sc, balancer.SubConnState{ConnectivityState: su.state, ConnectionError: su.err})
 			ccb.balancerMu.Unlock()
 		case <-ccb.done.Done():
 		}
 
+		//如果退出，移除掉连接
 		if ccb.done.HasFired() {
 			ccb.balancer.Close()
 			ccb.mu.Lock()
@@ -88,6 +90,7 @@ func (ccb *ccBalancerWrapper) watcher() {
 			for acbw := range scs {
 				ccb.cc.removeAddrConn(acbw.getAddrConn(), errConnDrain)
 			}
+			//连接整体状态更新为连接中，balancer的选择器更新为空
 			ccb.UpdateState(balancer.State{ConnectivityState: connectivity.Connecting, Picker: nil})
 			return
 		}
@@ -98,6 +101,7 @@ func (ccb *ccBalancerWrapper) close() {
 	ccb.done.Fire()
 }
 
+//handleSubConnStateChange 上层address conn 状态发生改变的时候，通知底层balancer更新sub conn状态
 func (ccb *ccBalancerWrapper) handleSubConnStateChange(sc balancer.SubConn, s connectivity.State, err error) {
 	// When updating addresses for a SubConn, if the address in use is not in
 	// the new addresses, the old ac will be tearDown() and a new ac will be

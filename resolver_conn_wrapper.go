@@ -95,6 +95,7 @@ func (ccr *ccResolverWrapper) close() {
 
 // poll begins or ends asynchronous polling of the resolver based on whether
 // err is ErrBadResolverState.
+//定时让解析器更新地址列表
 func (ccr *ccResolverWrapper) poll(err error) {
 	ccr.pollingMu.Lock()
 	defer ccr.pollingMu.Unlock()

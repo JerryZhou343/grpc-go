@@ -23,10 +23,10 @@ import "sync"
 // Unbounded is an implementation of an unbounded buffer which does not use
 // extra goroutines. This is typically used for passing updates from one entity
 // to another within gRPC.
-//
+// Unbounded 实现了一个无限buffer，不使用额外的goroutines
 // All methods on this type are thread-safe and don't block on anything except
 // the underlying mutex used for synchronization.
-//
+// 线程安全，无锁
 // Unbounded supports values of any type to be stored in it by using a channel
 // of `interface{}`. This means that a call to Put() incurs an extra memory
 // allocation, and also that users need a type assertion while reading. For
