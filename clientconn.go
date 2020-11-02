@@ -714,7 +714,7 @@ func (cc *ClientConn) handleSubConnStateChange(sc balancer.SubConn, s connectivi
 }
 
 // newAddrConn creates an addrConn for addrs and adds it to cc.conns.
-//
+//创建一个连接对象
 // Caller needs to make sure len(addrs) > 0.
 func (cc *ClientConn) newAddrConn(addrs []resolver.Address, opts balancer.NewSubConnOptions) (*addrConn, error) {
 	ac := &addrConn{
@@ -1199,7 +1199,7 @@ func (ac *addrConn) resetTransport() {
 // the successful case. The Event fires when the returned transport disconnects.
 func (ac *addrConn) tryAllAddrs(addrs []resolver.Address, connectDeadline time.Time) (transport.ClientTransport, resolver.Address, *grpcsync.Event, error) {
 	var firstConnErr error
-	for _, addr := range addrs {
+	for _, addr := range addrs { //遍历地址列表，尝试连接地址，如果成功一个就返回
 		ac.mu.Lock()
 		if ac.state == connectivity.Shutdown {
 			ac.mu.Unlock()
@@ -1217,7 +1217,7 @@ func (ac *addrConn) tryAllAddrs(addrs []resolver.Address, connectDeadline time.T
 		ac.mu.Unlock()
 
 		channelz.Infof(logger, ac.channelzID, "Subchannel picks a new address %q to connect", addr.Addr)
-
+		//尝试连接，连接成功，返回
 		newTr, reconnect, err := ac.createTransport(addr, copts, connectDeadline)
 		if err == nil {
 			return newTr, addr, reconnect, nil
