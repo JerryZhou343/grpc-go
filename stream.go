@@ -257,7 +257,7 @@ func newClientStream(ctx context.Context, desc *StreamDesc, cc *ClientConn, meth
 		}
 		sh.HandleRPC(ctx, begin)
 	}
-
+	//创建客户端里流
 	cs := &clientStream{
 		callHdr:      callHdr,
 		ctx:          ctx,
@@ -442,8 +442,8 @@ type clientStream struct {
 type csAttempt struct {
 	cs   *clientStream
 	t    transport.ClientTransport
-	s    *transport.Stream
-	p    *parser
+	s    *transport.Stream //传输层流
+	p    *parser //消息转换器
 	done func(balancer.DoneInfo)
 
 	finished  bool
@@ -457,7 +457,7 @@ type csAttempt struct {
 	// and cleared when the finish method is called.
 	trInfo *traceInfo
 
-	statsHandler stats.Handler
+	statsHandler stats.Handler //统计处理handler
 }
 
 func (cs *clientStream) commitAttemptLocked() {

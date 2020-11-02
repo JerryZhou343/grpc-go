@@ -62,7 +62,7 @@ type http2Client struct {
 	userAgent  string
 	md         interface{}
 	conn       net.Conn // underlying communication channel
-	loopy      *loopyWriter
+	loopy      *loopyWriter //循环writer，从缓冲区读取数据，写入到socket中
 	remoteAddr net.Addr
 	localAddr  net.Addr
 	authInfo   credentials.AuthInfo // auth info about the connection
@@ -315,6 +315,7 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 	// Start the reader goroutine for incoming message. Each transport has
 	// a dedicated goroutine which reads HTTP2 frame from network. Then it
 	// dispatches the frame to the corresponding stream entity.
+	//读取入站消息，分发流实体
 	go t.reader()
 
 	// Send connection preface to server.
