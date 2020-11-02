@@ -247,6 +247,7 @@ type Resolver interface {
 	// again. It's just a hint, resolver can ignore this if it's not necessary.
 	//
 	// It could be called multiple times concurrently.
+	//激发解析器，再次解析
 	ResolveNow(ResolveNowOptions)
 	// Close closes the resolver.
 	Close()

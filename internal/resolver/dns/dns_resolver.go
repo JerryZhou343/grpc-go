@@ -212,6 +212,7 @@ func (d *dnsResolver) watcher() {
 		if err != nil {
 			d.cc.ReportError(err)
 		} else {
+			//调用con 对象，更新地址列表
 			d.cc.UpdateState(*state)
 		}
 
@@ -323,6 +324,7 @@ func (d *dnsResolver) lookupHost() ([]resolver.Address, error) {
 	return newAddrs, nil
 }
 
+//lookup 订阅地址变更
 func (d *dnsResolver) lookup() (*resolver.State, error) {
 	srv, srvErr := d.lookupSRV()
 	addrs, hostErr := d.lookupHost()

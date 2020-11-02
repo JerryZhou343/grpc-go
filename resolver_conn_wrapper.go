@@ -144,6 +144,7 @@ func (ccr *ccResolverWrapper) UpdateState(s resolver.State) {
 	if channelz.IsOn() {
 		ccr.addChannelzTraceEvent(s)
 	}
+	//更新当前地址列表
 	ccr.curState = s
 	ccr.poll(ccr.cc.updateResolverState(ccr.curState, nil))
 }

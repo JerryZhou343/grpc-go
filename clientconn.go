@@ -584,6 +584,7 @@ func (cc *ClientConn) maybeApplyDefaultServiceConfig(addrs []resolver.Address) {
 	}
 }
 
+//更新客户端地址列表
 func (cc *ClientConn) updateResolverState(s resolver.State, err error) error {
 	defer cc.firstResolveEvent.Fire()
 	cc.mu.Lock()
