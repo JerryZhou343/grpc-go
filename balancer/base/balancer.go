@@ -111,7 +111,7 @@ func (b *baseBalancer) UpdateClientConnState(s balancer.ClientConnState) error {
 			}
 			b.subConns[a] = sc
 			b.scStates[sc] = connectivity.Idle
-			sc.Connect()
+			sc.Connect() //如果改地址没有subConn 对象，则创建一个,并建立连接
 		}
 	}
 	for a, sc := range b.subConns {
