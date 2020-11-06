@@ -109,8 +109,9 @@ func (f *trInFlow) reset() uint32 {
 	return w
 }
 
+//更新生效窗口大小
 func (f *trInFlow) updateEffectiveWindowSize() {
-	atomic.StoreUint32(&f.effectiveWindowSize, f.limit-f.unacked)
+	atomic.StoreUint32(&f.effectiveWindowSize, f.limit-f.unacked) //限制大小，减去未应答大小
 }
 
 func (f *trInFlow) getSize() uint32 {

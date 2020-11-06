@@ -592,7 +592,7 @@ func (p PerformedIOError) Error() string {
 // 创建一个流，并注册到传输层的活跃流中
 func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Stream, err error) {
 	ctx = peer.NewContext(ctx, t.getPeer())
-	headerFields, err := t.createHeaderFields(ctx, callHdr)
+	headerFields, err := t.createHeaderFields(ctx, callHdr) //通过context生成消息头
 	if err != nil {
 		// We may have performed I/O in the per-RPC creds callback, so do not
 		// allow transparent retry.
